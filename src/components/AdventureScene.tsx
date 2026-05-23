@@ -3,6 +3,7 @@ import { OrbitControls } from "@react-three/drei";
 import { useAssetManifest } from "../game/useAssetManifest";
 import { FINAL_BOSS_NODE, getCurrentMap } from "../game/maps";
 import type { MapNode, RunState } from "../game/types";
+import { BattleGround } from "./BattleGround";
 import { MapPath } from "./MapPath";
 import { getNodePosition, RouteNodeMesh } from "./RouteNodeMesh";
 import { OptionalGlbModel, SplatScene } from "./SceneAssets";
@@ -13,13 +14,17 @@ interface AdventureSceneProps {
   onChooseNode: (nodeId: string) => void;
 }
 
+const BATTLE_PLAYER_POSITION: [number, number, number] = [-1.25, 0.52, -0.2];
+const BATTLE_ENEMY_POSITION: [number, number, number] = [1.25, 0.52, -0.2];
+
 export function AdventureScene({ state, availableNodes, onChooseNode }: AdventureSceneProps) {
   const assetManifest = useAssetManifest();
   const nodes = getSceneNodes(state, availableNodes);
+  const isBattle = state.phase === "battle";
   const availableIds = new Set(availableNodes.map((node) => node.id));
   const completedIds = new Set(state.completedNodeIds);
-  const playerPosition = getFigurePosition(nodes, state.currentNodeId, -0.45);
-  const enemyPosition = getFigurePosition(nodes, state.currentNodeId, 0.45);
+  const playerPosition = isBattle ? BATTLE_PLAYER_POSITION : getFigurePosition(nodes, state.currentNodeId, -0.45);
+  const enemyPosition = isBattle ? BATTLE_ENEMY_POSITION : getFigurePosition(nodes, state.currentNodeId, 0.45);
 
   return (
     <div className="scene-layer">
@@ -30,33 +35,39 @@ export function AdventureScene({ state, availableNodes, onChooseNode }: Adventur
         <hemisphereLight args={["#eaf7ff", "#2b332a", 0.8]} />
         <directionalLight position={[3.5, 6, 3]} intensity={1.45} castShadow />
         <SplatScene asset={assetManifest.scene} />
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.08, -1.05]} receiveShadow>
-          <planeGeometry args={[10, 8]} />
-          <meshStandardMaterial color="#263328" roughness={0.88} />
-        </mesh>
-        {nodes.flatMap((node) =>
-          node.nextIds
-            .map((nextId) => nodes.find((candidate) => candidate.id === nextId))
-            .filter((nextNode): nextNode is MapNode => Boolean(nextNode))
-            .map((nextNode) => (
-              <MapPath
-                key={`${node.id}-${nextNode.id}`}
-                from={node}
-                to={nextNode}
-                active={completedIds.has(node.id) && (availableIds.has(nextNode.id) || completedIds.has(nextNode.id))}
+        {isBattle ? (
+          <BattleGround />
+        ) : (
+          <>
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.08, -1.05]} receiveShadow>
+              <planeGeometry args={[10, 8]} />
+              <meshStandardMaterial color="#263328" roughness={0.88} />
+            </mesh>
+            {nodes.flatMap((node) =>
+              node.nextIds
+                .map((nextId) => nodes.find((candidate) => candidate.id === nextId))
+                .filter((nextNode): nextNode is MapNode => Boolean(nextNode))
+                .map((nextNode) => (
+                  <MapPath
+                    key={`${node.id}-${nextNode.id}`}
+                    from={node}
+                    to={nextNode}
+                    active={completedIds.has(node.id) && (availableIds.has(nextNode.id) || completedIds.has(nextNode.id))}
+                  />
+                ))
+            )}
+            {nodes.map((node) => (
+              <RouteNodeMesh
+                key={node.id}
+                node={node}
+                available={availableIds.has(node.id)}
+                completed={completedIds.has(node.id)}
+                current={state.currentNodeId === node.id}
+                onChoose={onChooseNode}
               />
-            ))
+            ))}
+          </>
         )}
-        {nodes.map((node) => (
-          <RouteNodeMesh
-            key={node.id}
-            node={node}
-            available={availableIds.has(node.id)}
-            completed={completedIds.has(node.id)}
-            current={state.currentNodeId === node.id}
-            onChoose={onChooseNode}
-          />
-        ))}
         <OptionalGlbModel
           asset={assetManifest.skins[state.selectedSkinId]}
           position={playerPosition}
