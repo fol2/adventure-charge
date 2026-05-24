@@ -1,0 +1,22 @@
+{
+  "name": "star-dash",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 5173",
+    "lint": "node scripts/check-js-syntax.js",
+    "test": "node --test",
+    "smoke": "node scripts/smoke-test-localhost.js",
+    "build": "vite build",
+    "check": "npm run lint && npm run test && npm run build",
+    "preview": "vite preview --host 127.0.0.1"
+  },
+  "dependencies": {
+    "phaser": "^3.90.0"
+  },
+  "devDependencies": {
+    "playwright": "^1.60.0",
+    "vite": "^8.0.14"
+  }
+}
