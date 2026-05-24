@@ -1,4 +1,4 @@
-import { Coins, Heart, KeyRound, Map, RotateCcw, Shield, UserRound, Zap } from "lucide-react";
+import { Coins, Heart, KeyRound, Map, RotateCcw, Shield, Sparkles, UserRound, Zap } from "lucide-react";
 import { SKINS } from "../game/skins";
 import type { RunState } from "../game/types";
 
@@ -28,6 +28,9 @@ export function Hud({ state, onRestart }: HudProps) {
         </span>
         <span className="resource-chip">
           <KeyRound size={16} /> {state.keys}/3
+        </span>
+        <span className="resource-chip">
+          <Sparkles size={16} /> {state.player.relics.length}
         </span>
         <span className="resource-chip">
           <Map size={16} /> {mapLabel}

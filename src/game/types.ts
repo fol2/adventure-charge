@@ -1,4 +1,4 @@
-export type GamePhase = "start" | "map" | "battle" | "shop" | "victory" | "defeat";
+export type GamePhase = "start" | "map" | "battle" | "reward" | "shop" | "victory" | "defeat";
 
 export type CardKind = "attack" | "defence" | "skill";
 
@@ -25,6 +25,7 @@ export interface PlayerState {
   maxEnergy: number;
   energy: number;
   coins: number;
+  relics: string[];
   deck: string[];
   drawPile: string[];
   hand: string[];
@@ -87,6 +88,27 @@ export interface SkinStatus extends SkinDefinition {
   unlocked: boolean;
 }
 
+export type RelicRarity = "starter" | "common" | "rare" | "boss";
+
+export interface RelicDefinition {
+  id: string;
+  name: string;
+  rarity: RelicRarity;
+  description: string;
+  colour: string;
+}
+
+export type RewardReason = "battle" | "treasure" | "guardian" | "finalBoss";
+
+export interface PendingReward {
+  reason: RewardReason;
+  sourceNodeId: string;
+  title: string;
+  coins: number;
+  cardIds: string[];
+  relicId?: string;
+}
+
 export interface RunStats {
   battlesWon: number;
   elitesDefeated: number;
@@ -106,6 +128,7 @@ export interface RunState {
   player: PlayerState;
   currentEnemy: EnemyState | null;
   shopInventory: string[];
+  pendingReward: PendingReward | null;
   stats: RunStats;
   message: string;
 }

@@ -445,6 +445,37 @@ button {
   grid-column: 1 / -1;
 }
 
+.reward-view {
+  grid-column: 1 / -1;
+  padding-bottom: 14px;
+}
+
+.reward-strip,
+.relic-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 14px 12px;
+}
+
+.reward-grid {
+  padding: 0 14px;
+}
+
+.relic-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--ink);
+  font-size: 0.84rem;
+  line-height: 1.25;
+}
+
 .shop-button {
   grid-template-columns: minmax(0, 1fr) auto;
 }

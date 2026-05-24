@@ -1,5 +1,6 @@
 import { Coins, DoorOpen } from "lucide-react";
 import { getCard } from "../game/cards";
+import { getCardPrice } from "../game/gameState";
 import type { RunState } from "../game/types";
 
 interface ShopViewProps {
@@ -25,7 +26,8 @@ export function ShopView({ state, onBuyCard, onLeave }: ShopViewProps) {
       <div className="shop-list">
         {state.shopInventory.map((cardId) => {
           const card = getCard(cardId);
-          const canAfford = state.player.coins >= card.price;
+          const price = getCardPrice(state, cardId);
+          const canAfford = state.player.coins >= price;
 
           return (
             <button className="shop-button" type="button" key={card.id} disabled={!canAfford} onClick={() => onBuyCard(card.id)}>
@@ -34,7 +36,7 @@ export function ShopView({ state, onBuyCard, onLeave }: ShopViewProps) {
                 <span className="button-detail">{card.description}</span>
               </span>
               <span className="stat-pill">
-                <Coins size={14} /> {card.price}
+                <Coins size={14} /> {price}
               </span>
             </button>
           );

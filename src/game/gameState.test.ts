@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   buyShopCard,
   canStartFinalBoss,
+  claimRewardCard,
   chooseRouteNode,
   createNewRun,
   endPlayerTurn,
-  playPlayerCard
+  playPlayerCard,
+  skipReward
 } from "./gameState";
 import { getSkinStatuses } from "./skins";
 
@@ -122,7 +124,8 @@ describe("adventure card game rules", () => {
       }
     };
 
-    const afterWin = playPlayerCard(guardianBattle, 0);
+    const reward = playPlayerCard(guardianBattle, 0);
+    const afterWin = claimRewardCard(reward, reward.pendingReward!.cardIds[0]);
 
     expect(afterWin.phase).toBe("map");
     expect(afterWin.keys).toBe(1);
@@ -189,6 +192,91 @@ describe("adventure card game rules", () => {
     expect(tooPoor.player.deck.filter((cardId) => cardId === firstCardId)).toHaveLength(
       shop.player.deck.filter((cardId) => cardId === firstCardId).length
     );
+  });
+
+  it("opens a card reward choice after normal battles", () => {
+    const started = createNewRun();
+    const battle = chooseRouteNode(started, "m1-encounter-a");
+    const strikeIndex = battle.player.hand.findIndex((cardId) => cardId === "strike");
+    const reward = playPlayerCard(
+      {
+        ...battle,
+        currentEnemy: {
+          ...battle.currentEnemy!,
+          health: 1
+        }
+      },
+      strikeIndex
+    );
+
+    expect(reward.phase).toBe("reward");
+    expect(reward.pendingReward?.cardIds).toHaveLength(3);
+
+    const chosenCard = reward.pendingReward!.cardIds[0];
+    const afterClaim = claimRewardCard(reward, chosenCard);
+
+    expect(afterClaim.phase).toBe("map");
+    expect(afterClaim.player.deck).toContain(chosenCard);
+    expect(afterClaim.player.coins).toBeGreaterThan(started.player.coins);
+  });
+
+  it("allows skipping card rewards without losing coins", () => {
+    const started = createNewRun();
+    const battle = chooseRouteNode(started, "m1-encounter-a");
+    const strikeIndex = battle.player.hand.findIndex((cardId) => cardId === "strike");
+    const reward = playPlayerCard(
+      {
+        ...battle,
+        currentEnemy: {
+          ...battle.currentEnemy!,
+          health: 1
+        }
+      },
+      strikeIndex
+    );
+    const afterSkip = skipReward(reward);
+
+    expect(reward.phase).toBe("reward");
+    expect(afterSkip.phase).toBe("map");
+    expect(afterSkip.player.deck).toHaveLength(started.player.deck.length);
+    expect(afterSkip.player.coins).toBeGreaterThan(started.player.coins);
+  });
+
+  it("applies relic effects for battle energy, attack damage, and shop prices", () => {
+    const started = createNewRun();
+    const battle = chooseRouteNode(started, "m1-encounter-a");
+
+    expect(battle.player.energy).toBe(4);
+
+    const fangBattle = {
+      ...battle,
+      player: {
+        ...battle.player,
+        relics: [...battle.player.relics, "crackedFang"]
+      },
+      currentEnemy: {
+        ...battle.currentEnemy!,
+        block: 0
+      }
+    };
+    const strikeIndex = fangBattle.player.hand.findIndex((cardId) => cardId === "strike");
+    const afterStrike = playPlayerCard(fangBattle, strikeIndex);
+
+    expect(afterStrike.currentEnemy!.health).toBe(fangBattle.currentEnemy.health - 8);
+
+    const shop = chooseRouteNode(
+      {
+        ...started,
+        player: {
+          ...started.player,
+          relics: [...started.player.relics, "marketToken"]
+        }
+      },
+      "m1-shop"
+    );
+    const bought = buyShopCard(shop, "heavySwing");
+
+    expect(bought.player.coins).toBe(started.player.coins - 14);
   });
 
   it("unlocks exactly four skins through hard progress gates", () => {

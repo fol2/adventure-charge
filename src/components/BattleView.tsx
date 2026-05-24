@@ -45,6 +45,8 @@ export function BattleView({ state, onPlayCard, onEndTurn }: BattleViewProps) {
             </span>
             <span className="stat-pill">{state.player.energy} energy</span>
             <span className="stat-pill">{state.player.deck.length} deck</span>
+            <span className="stat-pill">{state.player.drawPile.length} draw</span>
+            <span className="stat-pill">{state.player.discardPile.length} discard</span>
           </div>
           <div className="battle-actions">
             <button className="danger-button" type="button" onClick={onEndTurn}>

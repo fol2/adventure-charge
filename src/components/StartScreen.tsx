@@ -12,8 +12,8 @@ export function StartScreen({ onStart }: StartScreenProps) {
           Adventure Charge
         </h1>
         <p className="start-copy">
-          Choose routes, fight with cards, buy stronger moves, collect 3 keys, and open the storm gate.
-          Four skins wait behind tough unlocks.
+          Choose risky routes, read enemy intent, build your deck from card rewards, collect relics, and open the
+          storm gate with 3 keys. Four skins wait behind tough unlocks.
         </p>
         <div className="stat-row" aria-label="Game pillars">
           <span className="stat-pill">

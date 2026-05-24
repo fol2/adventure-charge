@@ -1,8 +1,9 @@
 import { getCard, SHOP_CARD_IDS, STARTER_DECK, TREASURE_CARD_IDS } from "./cards";
 import { getEnemy } from "./enemies";
 import { FINAL_BOSS_NODE, getCurrentMap, MAPS } from "./maps";
+import { getNextRelicId } from "./relics";
 import { isSkinUnlocked } from "./skins";
-import type { EnemyState, MapNode, PlayerState, RunState, RunStats } from "./types";
+import type { EnemyDefinition, EnemyState, MapNode, PendingReward, PlayerState, RunState, RunStats } from "./types";
 
 const STARTING_HEALTH = 74;
 const STARTING_COINS = 24;
@@ -29,6 +30,7 @@ export function createNewRun(): RunState {
     player: createPlayer(),
     currentEnemy: null,
     shopInventory: generateShopInventory(0),
+    pendingReward: null,
     stats: createStats(),
     message: "Choose a route. Three keys open the storm gate."
   };
@@ -76,30 +78,27 @@ export function chooseRouteNode(state: RunState, nodeId: string): RunState {
   }
 
   if (node.type === "rest") {
-    const healedPlayer = healPlayer(state.player, 18);
+    const restBonus = state.player.relics.includes("mossBandage") ? 6 : 0;
+    const healedPlayer = healPlayer(state.player, 18 + restBonus);
 
     return completeMapNode(
       {
         ...state,
         player: healedPlayer,
-        message: "You rest and recover 18 health."
+        message: `You rest and recover ${18 + restBonus} health.`
       },
       node
     );
   }
 
   if (node.type === "treasure") {
-    const cardId = TREASURE_CARD_IDS[(state.keys + state.stats.battlesWon + state.mapIndex) % TREASURE_CARD_IDS.length];
-    const card = getCard(cardId);
-
-    return completeMapNode(
-      {
-        ...state,
-        player: addCardToDeck({ ...state.player, coins: state.player.coins + 10 }, cardId),
-        message: `Treasure found: ${card.name} joins your deck, with 10 coins.`
-      },
-      node
-    );
+    return {
+      ...state,
+      phase: "reward",
+      currentNodeId: node.id,
+      pendingReward: createTreasureReward(state, node),
+      message: "A dirty chest cracks open. Pick a card or skip it."
+    };
   }
 
   if (node.type === "finalBoss" && !canStartFinalBoss(state)) {
@@ -146,7 +145,8 @@ export function playPlayerCard(state: RunState, handIndex: number): RunState {
   let nextEnemy = { ...state.currentEnemy };
 
   if (card.damage) {
-    nextEnemy = damageEnemy(nextEnemy, card.damage);
+    const relicBonus = card.kind === "attack" && state.player.relics.includes("crackedFang") ? 2 : 0;
+    nextEnemy = damageEnemy(nextEnemy, card.damage + relicBonus);
   }
 
   if (card.block) {
@@ -260,10 +260,12 @@ export function buyShopCard(state: RunState, cardId: string): RunState {
 
   const card = getCard(cardId);
 
-  if (state.player.coins < card.price) {
+  const price = getCardPrice(state, cardId);
+
+  if (state.player.coins < price) {
     return {
       ...state,
-      message: `${card.name} costs ${card.price} coins.`
+      message: `${card.name} costs ${price} coins.`
     };
   }
 
@@ -272,7 +274,7 @@ export function buyShopCard(state: RunState, cardId: string): RunState {
     player: addCardToDeck(
       {
         ...state.player,
-        coins: state.player.coins - card.price
+        coins: state.player.coins - price
       },
       cardId
     ),
@@ -283,6 +285,22 @@ export function buyShopCard(state: RunState, cardId: string): RunState {
     },
     message: `${card.name} added to your deck.`
   };
+}
+
+export function claimRewardCard(state: RunState, cardId: string): RunState {
+  if (state.phase !== "reward" || !state.pendingReward || !state.pendingReward.cardIds.includes(cardId)) {
+    return state;
+  }
+
+  return completePendingReward(state, cardId);
+}
+
+export function skipReward(state: RunState): RunState {
+  if (state.phase !== "reward" || !state.pendingReward) {
+    return state;
+  }
+
+  return completePendingReward(state);
 }
 
 export function leaveShop(state: RunState): RunState {
@@ -330,6 +348,13 @@ export function canStartFinalBoss(state: RunState): boolean {
   return state.keys >= 3 && state.mapIndex >= MAPS.length;
 }
 
+export function getCardPrice(state: RunState, cardId: string): number {
+  const card = getCard(cardId);
+  const discount = state.player.relics.includes("marketToken") ? 4 : 0;
+
+  return Math.max(1, card.price - discount);
+}
+
 function createStats(): RunStats {
   return {
     battlesWon: 0,
@@ -349,6 +374,7 @@ function createPlayer(): PlayerState {
     maxEnergy: 3,
     energy: 3,
     coins: STARTING_COINS,
+    relics: ["sewerLantern"],
     deck: [...STARTER_DECK],
     drawPile: [...STARTER_DECK],
     hand: [],
@@ -367,8 +393,8 @@ function startBattle(state: RunState, node: MapNode): RunState {
   const player = drawCards(
     {
       ...state.player,
-      block: 0,
-      energy: state.player.maxEnergy,
+      block: state.player.relics.includes("stoneShell") ? 5 : 0,
+      energy: state.player.maxEnergy + (state.player.relics.includes("sewerLantern") ? 1 : 0),
       drawPile: [...state.player.deck],
       hand: [],
       discardPile: []
@@ -393,19 +419,12 @@ function completeBattle(state: RunState): RunState {
 
   const currentNode = getNodeForState(state);
   const enemyDefinition = getEnemy(state.currentEnemy.id);
-  const rewardCardId =
-    enemyDefinition.rewardCardIds[state.stats.battlesWon % Math.max(1, enemyDefinition.rewardCardIds.length)];
-  const rewardCard = getCard(rewardCardId);
-  const rewardedPlayer = addCardToDeck(
-    {
-      ...state.player,
-      coins: state.player.coins + enemyDefinition.rewardCoins,
-      block: 0,
-      hand: [],
-      discardPile: [...state.player.discardPile, ...state.player.hand]
-    },
-    rewardCardId
-  );
+  const cleanedPlayer = {
+    ...state.player,
+    block: 0,
+    hand: [],
+    discardPile: [...state.player.discardPile, ...state.player.hand]
+  };
   const baseStats: RunStats = {
     ...state.stats,
     battlesWon: state.stats.battlesWon + 1,
@@ -416,8 +435,12 @@ function completeBattle(state: RunState): RunState {
     return {
       ...state,
       phase: "victory",
-      player: rewardedPlayer,
+      player: {
+        ...cleanedPlayer,
+        coins: cleanedPlayer.coins + enemyDefinition.rewardCoins
+      },
       currentEnemy: null,
+      pendingReward: null,
       stats: {
         ...baseStats,
         finalBossDefeated: true
@@ -426,54 +449,30 @@ function completeBattle(state: RunState): RunState {
     };
   }
 
-  if (currentNode?.type === "guardian") {
-    const nextKeys = state.keys + 1;
-    const nextMapIndex = state.mapIndex + 1;
-    const hasFinishedAllMaps = nextMapIndex >= MAPS.length;
-    const nextMap = MAPS[nextMapIndex];
-
-    return {
-      ...state,
-      phase: "map",
-      mapIndex: nextMapIndex,
-      currentNodeId: hasFinishedAllMaps ? "boss-gate" : nextMap.startNodeId,
-      completedNodeIds: hasFinishedAllMaps ? ["boss-gate"] : [nextMap.startNodeId],
-      keys: nextKeys,
-      player: rewardedPlayer,
-      currentEnemy: null,
-      stats: {
-        ...baseStats,
-        guardiansDefeated: baseStats.guardiansDefeated + 1,
-        mapsCompleted: baseStats.mapsCompleted + 1
-      },
-      message: hasFinishedAllMaps
-        ? `Key ${nextKeys} claimed. The big boss gate is open. ${rewardCard.name} joined your deck.`
-        : `Key ${nextKeys} claimed. You enter ${nextMap.name}. ${rewardCard.name} joined your deck.`
-    };
-  }
-
   if (!currentNode) {
     return {
       ...state,
       phase: "map",
-      player: rewardedPlayer,
+      player: {
+        ...cleanedPlayer,
+        coins: cleanedPlayer.coins + enemyDefinition.rewardCoins
+      },
       currentEnemy: null,
+      pendingReward: null,
       stats: baseStats,
-      message: `${enemyDefinition.name} defeated. ${rewardCard.name} joined your deck.`
+      message: `${enemyDefinition.name} defeated.`
     };
   }
 
-  return completeMapNode(
-    {
-      ...state,
-      phase: "map",
-      player: rewardedPlayer,
-      currentEnemy: null,
-      stats: baseStats,
-      message: `${enemyDefinition.name} defeated. ${rewardCard.name} joined your deck.`
-    },
-    currentNode
-  );
+  return {
+    ...state,
+    phase: "reward",
+    player: cleanedPlayer,
+    currentEnemy: null,
+    pendingReward: createBattleReward(state, currentNode, enemyDefinition),
+    stats: baseStats,
+    message: `${enemyDefinition.name} defeated. Pick a reward card, or skip it.`
+  };
 }
 
 function createEnemy(enemyId: string): EnemyState {
@@ -583,6 +582,7 @@ function completeMapNode(state: RunState, node: MapNode): RunState {
     phase: "map",
     currentNodeId: node.id,
     completedNodeIds: [...new Set([...state.completedNodeIds, node.id])],
+    pendingReward: null,
     message: state.message
   };
 }
@@ -599,4 +599,115 @@ function getNodeForState(state: RunState): MapNode | null {
 
 function generateShopInventory(offset: number): string[] {
   return [0, 1, 2].map((slot) => SHOP_CARD_IDS[(offset + slot) % SHOP_CARD_IDS.length]);
+}
+
+function createBattleReward(state: RunState, node: MapNode, enemy: EnemyDefinition): PendingReward {
+  const isEliteOrGuardian = node.type === "elite" || node.type === "guardian";
+
+  return {
+    reason: node.type === "guardian" ? "guardian" : "battle",
+    sourceNodeId: node.id,
+    title: node.type === "guardian" ? "Guardian reward" : isEliteOrGuardian ? "Elite reward" : "Battle reward",
+    coins: enemy.rewardCoins,
+    cardIds: generateCardRewardIds(state, enemy.rewardCardIds),
+    relicId: isEliteOrGuardian ? getNextRelicId(state, node.type === "guardian" ? 2 : 0) : undefined
+  };
+}
+
+function createTreasureReward(state: RunState, node: MapNode): PendingReward {
+  return {
+    reason: "treasure",
+    sourceNodeId: node.id,
+    title: "Treasure reward",
+    coins: 10,
+    cardIds: generateCardRewardIds(state, TREASURE_CARD_IDS),
+    relicId: getNextRelicId(state, 1)
+  };
+}
+
+function generateCardRewardIds(state: RunState, priorityCardIds: string[]): string[] {
+  const pool = [...new Set([...priorityCardIds, ...TREASURE_CARD_IDS, ...SHOP_CARD_IDS])];
+
+  return [0, 1, 2].map((slot) => pool[(state.stats.battlesWon + state.keys + state.mapIndex + slot) % pool.length]);
+}
+
+function completePendingReward(state: RunState, cardId?: string): RunState {
+  const reward = state.pendingReward;
+
+  if (!reward) {
+    return state;
+  }
+
+  const cardName = cardId ? getCard(cardId).name : null;
+  let rewardedPlayer = {
+    ...state.player,
+    coins: state.player.coins + reward.coins
+  };
+
+  if (cardId) {
+    rewardedPlayer = addCardToDeck(rewardedPlayer, cardId);
+  }
+
+  if (reward.relicId && !rewardedPlayer.relics.includes(reward.relicId)) {
+    rewardedPlayer = {
+      ...rewardedPlayer,
+      relics: [...rewardedPlayer.relics, reward.relicId],
+      maxEnergy: reward.relicId === "bossKeyCharm" ? rewardedPlayer.maxEnergy + 1 : rewardedPlayer.maxEnergy
+    };
+  }
+
+  const chosenMessage = cardName ? `${cardName} added to your deck.` : "You skip the card reward.";
+
+  if (reward.reason === "guardian") {
+    return completeGuardianReward(state, rewardedPlayer, chosenMessage);
+  }
+
+  const currentNode = getNodeForState(state);
+
+  if (!currentNode) {
+    return {
+      ...state,
+      phase: "map",
+      player: rewardedPlayer,
+      pendingReward: null,
+      message: chosenMessage
+    };
+  }
+
+  return completeMapNode(
+    {
+      ...state,
+      player: rewardedPlayer,
+      pendingReward: null,
+      message: chosenMessage
+    },
+    currentNode
+  );
+}
+
+function completeGuardianReward(state: RunState, player: PlayerState, chosenMessage: string): RunState {
+  const nextKeys = state.keys + 1;
+  const nextMapIndex = state.mapIndex + 1;
+  const hasFinishedAllMaps = nextMapIndex >= MAPS.length;
+  const nextMap = MAPS[nextMapIndex];
+
+  return {
+    ...state,
+    phase: "map",
+    mapIndex: nextMapIndex,
+    currentNodeId: hasFinishedAllMaps ? "boss-gate" : nextMap.startNodeId,
+    completedNodeIds: hasFinishedAllMaps ? ["boss-gate"] : [nextMap.startNodeId],
+    keys: nextKeys,
+    player,
+    currentEnemy: null,
+    pendingReward: null,
+    stats: {
+      ...state.stats,
+      guardiansDefeated: state.stats.guardiansDefeated + 1,
+      mapsCompleted: state.stats.mapsCompleted + 1
+    },
+    message: hasFinishedAllMaps
+      ? `${chosenMessage} Key ${nextKeys} claimed. The big boss gate is open.`
+      : `${chosenMessage} Key ${nextKeys} claimed. You enter ${nextMap.name}.`
+  };
 }

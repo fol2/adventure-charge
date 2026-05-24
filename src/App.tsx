@@ -3,6 +3,7 @@ import { AdventureScene } from "./components/AdventureScene";
 import { BattleView } from "./components/BattleView";
 import { Hud } from "./components/Hud";
 import { MapPanel } from "./components/MapPanel";
+import { RewardView } from "./components/RewardView";
 import { RunSummary } from "./components/RunSummary";
 import { ShopView } from "./components/ShopView";
 import { SkinPanel } from "./components/SkinPanel";
@@ -28,6 +29,9 @@ export default function App() {
         )}
         {game.state.phase === "battle" && (
           <BattleView state={game.state} onPlayCard={game.playCard} onEndTurn={game.endTurn} />
+        )}
+        {game.state.phase === "reward" && (
+          <RewardView state={game.state} onClaimCard={game.claimReward} onSkip={game.skipReward} />
         )}
         {game.state.phase === "shop" && (
           <ShopView state={game.state} onBuyCard={game.buyCard} onLeave={game.leaveShop} />
