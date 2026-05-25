@@ -1,6 +1,8 @@
 import { existsSync, mkdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { gameSettings } from '../src/data/gameSettings.js';
+import { defaultShopItemId } from '../src/data/shopItems.js';
+import { accountsStorageKey, defaultAccountName } from '../src/data/shopState.js';
 
 const require = createRequire(import.meta.url);
 
@@ -15,7 +17,8 @@ function loadPlaywright() {
 const { chromium } = loadPlaywright();
 
 const localUrl = process.env.STAR_DASH_URL ?? 'http://127.0.0.1:5173/';
-const evidencePath = 'docs/contracts/evidence/star-dash-localhost.png';
+const evidencePath = process.env.STAR_DASH_EVIDENCE_PATH
+  ?? 'docs/contracts/evidence/star-dash-localhost.png';
 const centreX = gameSettings.gameWidth / 2;
 
 mkdirSync('docs/contracts/evidence', { recursive: true });
@@ -148,6 +151,27 @@ async function hitNaturalRock(page) {
 const browser = await launchBrowser();
 const page = await browser.newPage({ viewport: { width: 1000, height: 700 } });
 const errors = [];
+const smokeAccountsState = {
+  activeAccountName: defaultAccountName,
+  accounts: {
+    [defaultAccountName]: {
+      stars: 0,
+      bestRoundStars: 0,
+      ownedItemIds: [defaultShopItemId],
+      selectedItemId: defaultShopItemId
+    },
+    Ace: {
+      stars: 80,
+      bestRoundStars: 60,
+      ownedItemIds: [defaultShopItemId],
+      selectedItemId: defaultShopItemId
+    }
+  }
+};
+
+await page.addInitScript(([key, state]) => {
+  window.localStorage.setItem(key, JSON.stringify(state));
+}, [accountsStorageKey, smokeAccountsState]);
 
 page.on('console', (message) => {
   if (message.type() === 'error') {
@@ -160,15 +184,64 @@ await page.goto(withSmokeQuery(localUrl), { waitUntil: 'networkidle' });
 await page.waitForSelector('canvas');
 
 const canvasBox = await page.locator('canvas').boundingBox();
-await page.mouse.click(canvasBox.x + centreX, canvasBox.y + gameSettings.menuStartButtonY);
+await page.mouse.click(canvasBox.x + centreX, canvasBox.y + gameSettings.menuAccountButtonY);
 await page.waitForFunction(() => Boolean(window.starDashSmoke));
+await waitForGameState(page, (state) => state.scene === 'AccountScene', 'The account scene did not open.');
+
+page.once('dialog', (dialog) => dialog.accept('Nova'));
+await page.mouse.click(canvasBox.x + centreX, canvasBox.y + gameSettings.accountNewButtonY);
+const accountCreatedState = await waitForGameState(
+  page,
+  (state) => state.scene === 'AccountScene' && state.activeAccountName === 'Nova',
+  'Creating a local account failed.'
+);
+await page.mouse.click(
+  canvasBox.x + centreX + 135,
+  canvasBox.y + gameSettings.accountRowTopY + gameSettings.accountRowGap
+);
+const accountState = await waitForGameState(
+  page,
+  (state) => state.scene === 'AccountScene' && state.activeAccountName === 'Ace',
+  'Switching local accounts failed.'
+);
+await page.mouse.click(canvasBox.x + centreX, canvasBox.y + gameSettings.accountBackButtonY);
+await page.waitForTimeout(250);
+await page.mouse.click(canvasBox.x + centreX, canvasBox.y + gameSettings.menuShopButtonY);
+await page.waitForFunction(() => Boolean(window.starDashSmoke));
+await waitForGameState(page, (state) => state.scene === 'ShopScene', 'The shop scene did not open.');
+await page.mouse.click(
+  canvasBox.x + gameSettings.shopRightX + 52,
+  canvasBox.y + gameSettings.shopItemTopY + gameSettings.shopButtonGapY
+);
+const shopState = await waitForGameState(
+  page,
+  (state) => state.scene === 'ShopScene' && state.selectedItemId === 'ruby-ship',
+  'Buying and selecting a shop item failed.'
+);
+await page.mouse.click(canvasBox.x + centreX, canvasBox.y + gameSettings.shopBackButtonY);
+await page.waitForTimeout(250);
+await page.mouse.click(canvasBox.x + centreX, canvasBox.y + gameSettings.menuStartButtonY);
 await waitForGameState(page, (state) => state.scene === 'GameScene', 'The game scene did not start.');
 
-const startX = (await readState(page)).playerX;
+const startState = await waitForGameState(
+  page,
+  (state) => state.scene === 'GameScene' && state.selectedItemId === 'ruby-ship',
+  'The selected shop item was not used in the game.'
+);
+const startX = startState.playerX;
+const startY = startState.playerY;
 await page.keyboard.down('ArrowRight');
 await page.waitForTimeout(350);
 await page.keyboard.up('ArrowRight');
 const movedX = (await readState(page)).playerX;
+await page.keyboard.down('ArrowUp');
+await page.waitForTimeout(350);
+await page.keyboard.up('ArrowUp');
+const movedUpY = (await readState(page)).playerY;
+await page.keyboard.down('ArrowDown');
+await page.waitForTimeout(350);
+await page.keyboard.up('ArrowDown');
+const movedDownY = (await readState(page)).playerY;
 
 await waitForGameState(page, (state) => state.stars.length > 0, 'No naturally falling star spawned.');
 const scoreAfterStar = await collectNaturalStar(page);
@@ -189,7 +262,12 @@ await browser.close();
 
 const result = {
   url: localUrl,
+  createdAccountName: accountCreatedState.activeAccountName,
+  activeAccountName: accountState.activeAccountName,
+  shopSelectedItemId: shopState.selectedItemId,
   movedRightBy: movedX - startX,
+  movedUpBy: startY - movedUpY,
+  movedDownBy: movedDownY - movedUpY,
   scoreAfterStar,
   gameOverScore: gameOverState.score,
   restartedScore: restartedState.score,
@@ -201,6 +279,30 @@ console.log(JSON.stringify(result, null, 2));
 
 if (result.movedRightBy < 70) {
   throw new Error('The player did not move far enough to the right.');
+}
+
+if (result.shopSelectedItemId !== 'ruby-ship') {
+  throw new Error('The shop did not buy and select the Ruby Ship.');
+}
+
+if (result.createdAccountName !== 'Nova') {
+  throw new Error('The local account was not created from the Accounts screen.');
+}
+
+if (result.activeAccountName !== 'Ace') {
+  throw new Error('The local account did not switch to Ace.');
+}
+
+if (result.movedUpBy < 70) {
+  throw new Error('The player did not move up when ArrowUp was held.');
+}
+
+if (result.movedDownBy < 35) {
+  throw new Error('The player did not move down when ArrowDown was held.');
+}
+
+if (result.movedDownBy >= result.movedUpBy) {
+  throw new Error('ArrowDown should move more slowly than ArrowUp.');
 }
 
 if (scoreAfterStar < 1) {

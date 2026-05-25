@@ -35,3 +35,9 @@ npm run smoke
 ## How To Play
 
 Use the left and right arrow keys to move the spaceship. Collect falling stars to gain points. Avoid falling rocks. If a rock touches the player, the game ends and you can restart.
+
+Use the up arrow to move upward quickly. Use the down arrow to move downward more gently.
+
+Open the shop from the menu to spend collected stars on skins and carts. Some items unlock after a strong one-round score. Bought items stay saved in the browser on the same device.
+
+Open Accounts from the menu to make or switch between up to four local profiles on the same device.

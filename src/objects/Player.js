@@ -1,11 +1,11 @@
 import { gameSettings } from '../data/gameSettings.js';
 
 export class Player {
-  constructor(scene) {
+  constructor(scene, textureKey) {
     this.sprite = scene.physics.add.image(
       gameSettings.gameWidth / 2,
       gameSettings.gameHeight - gameSettings.playerBottomGap,
-      'player'
+      textureKey
     );
 
     this.sprite.setCollideWorldBounds(true);
@@ -15,7 +15,7 @@ export class Player {
   }
 
   update(cursors) {
-    this.sprite.setVelocityX(0);
+    this.sprite.setVelocity(0, 0);
 
     if (cursors.left.isDown) {
       this.sprite.setVelocityX(-gameSettings.playerSpeed);
@@ -23,6 +23,14 @@ export class Player {
 
     if (cursors.right.isDown) {
       this.sprite.setVelocityX(gameSettings.playerSpeed);
+    }
+
+    if (cursors.up.isDown) {
+      this.sprite.setVelocityY(-gameSettings.playerUpSpeed);
+    }
+
+    if (cursors.down.isDown) {
+      this.sprite.setVelocityY(gameSettings.playerDownSpeed);
     }
   }
 }

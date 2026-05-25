@@ -36,9 +36,20 @@ export class GameOverScene extends Phaser.Scene {
       color: '#ffffff'
     }).setOrigin(0.5);
 
+    this.add.text(centreX, gameSettings.gameOverStarsY, `Stars: ${data.totalStars ?? 0}`, {
+      fontFamily: 'Arial, Helvetica, sans-serif',
+      fontSize: '28px',
+      color: '#fef3c7'
+    }).setOrigin(0.5);
+
     createTextButton(this, centreX, gameSettings.gameOverRestartButtonY, 'Restart', () => {
       playStartSound();
       this.scene.start('GameScene');
+    });
+
+    createTextButton(this, centreX, gameSettings.gameOverShopButtonY, 'Shop', () => {
+      playStartSound();
+      this.scene.start('ShopScene');
     });
   }
 }

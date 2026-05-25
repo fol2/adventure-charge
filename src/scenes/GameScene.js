@@ -4,6 +4,8 @@ import { createGameTextures } from '../data/createGameTextures.js';
 import { calculateFallSpeed } from '../data/fallSpeed.js';
 import { gameSettings } from '../data/gameSettings.js';
 import { setSmokeStateReader } from '../data/smokeMode.js';
+import { finishRound, loadShopState } from '../data/shopState.js';
+import { findShopItem } from '../data/shopItems.js';
 import { FallingItem } from '../objects/FallingItem.js';
 import { Player } from '../objects/Player.js';
 import { createScoreText, updateScoreText } from '../ui/scoreText.js';
@@ -18,6 +20,8 @@ export class GameScene extends Phaser.Scene {
 
     this.score = 0;
     this.gameEnding = false;
+    this.shopState = loadShopState();
+    this.selectedItem = findShopItem(this.shopState.selectedItemId);
 
     this.background = this.add.tileSprite(
       gameSettings.gameWidth / 2,
@@ -29,7 +33,7 @@ export class GameScene extends Phaser.Scene {
 
     // Phaser creates the arrow key controls for us.
     this.cursors = this.input.keyboard.createCursorKeys();
-    this.player = new Player(this);
+    this.player = new Player(this, this.selectedItem.textureKey);
     this.scoreText = createScoreText(this);
 
     this.stars = this.physics.add.group();
@@ -114,10 +118,12 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.shake(180, 0.006);
     this.player.sprite.setTint(0xfca5a5);
     this.physics.pause();
+    const shopState = finishRound(this.score);
 
     this.time.delayedCall(gameSettings.hitPause, () => {
       this.scene.start('GameOverScene', {
-        score: this.score
+        score: this.score,
+        totalStars: shopState.stars
       });
     });
   }
@@ -152,6 +158,8 @@ export class GameScene extends Phaser.Scene {
     return {
       scene: 'GameScene',
       score: this.score,
+      selectedItemId: this.selectedItem.id,
+      playerTextureKey: this.selectedItem.textureKey,
       playerX: this.player.sprite.x,
       playerY: this.player.sprite.y,
       stars: this.readGroupPositions(this.stars),
