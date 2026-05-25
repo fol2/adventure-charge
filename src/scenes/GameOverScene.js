@@ -19,7 +19,8 @@ export class GameOverScene extends Phaser.Scene {
 
     setSmokeStateReader(() => ({
       scene: 'GameOverScene',
-      score: data.score ?? 0
+      score: data.score ?? 0,
+      highScore: data.highScore ?? data.score ?? 0
     }));
 
     this.add.text(centreX, gameSettings.gameOverTitleY, 'Game Over', {
@@ -34,6 +35,12 @@ export class GameOverScene extends Phaser.Scene {
       fontFamily: 'Arial, Helvetica, sans-serif',
       fontSize: '32px',
       color: '#ffffff'
+    }).setOrigin(0.5);
+
+    this.add.text(centreX, gameSettings.gameOverHighScoreY, `High Score: ${data.highScore ?? data.score ?? 0}`, {
+      fontFamily: 'Arial, Helvetica, sans-serif',
+      fontSize: '28px',
+      color: '#fef3c7'
     }).setOrigin(0.5);
 
     this.add.text(centreX, gameSettings.gameOverStarsY, `Stars: ${data.totalStars ?? 0}`, {

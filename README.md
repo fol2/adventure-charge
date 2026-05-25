@@ -40,4 +40,6 @@ Use the up arrow to move upward quickly. Use the down arrow to move downward mor
 
 Open the shop from the menu to spend collected stars on skins and carts. Some items unlock after a strong one-round score. Bought items stay saved in the browser on the same device.
 
-Open Accounts from the menu to make or switch between up to four local profiles on the same device.
+The menu and game over screen show the active account high score.
+
+Open Accounts from the menu to make or switch between local profiles on the same device. Accounts are shown across pages when there are several profiles.

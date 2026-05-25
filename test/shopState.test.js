@@ -56,17 +56,18 @@ test('createAccount creates and activates a local profile', () => {
   assert.deepEqual(Object.keys(state.accounts), [defaultAccountName, 'Ace']);
 });
 
-test('createAccount keeps the local account list within the visible limit', () => {
+test('createAccount allows more local profiles than one visible account page', () => {
   const storage = createStorage();
 
   createAccount('Ace', storage);
   createAccount('Bea', storage);
   createAccount('Cal', storage);
-  const state = createAccount('Dee', storage);
+  createAccount('Dee', storage);
+  const state = createAccount('Eli', storage);
 
-  assert.equal(Object.keys(state.accounts).length, gameSettings.maxAccountCount);
-  assert.equal(state.accounts.Dee, undefined);
-  assert.equal(state.activeAccountName, 'Cal');
+  assert.equal(Object.keys(state.accounts).length, gameSettings.accountRowsPerPage + 2);
+  assert.equal(Boolean(state.accounts.Eli), true);
+  assert.equal(state.activeAccountName, 'Eli');
 });
 
 test('switchAccount changes which profile the shop uses', () => {

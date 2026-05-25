@@ -5,7 +5,6 @@ import {
   isShopItemUnlocked,
   shopItems
 } from './shopItems.js';
-import { gameSettings } from './gameSettings.js';
 
 export const accountsStorageKey = 'star-dash-accounts';
 export const defaultAccountName = 'Player';
@@ -93,10 +92,6 @@ export function createAccount(name, storage = getBrowserStorage()) {
   }
 
   const state = loadAccountsState(storage);
-
-  if (!state.accounts[accountName] && Object.keys(state.accounts).length >= gameSettings.maxAccountCount) {
-    return state;
-  }
 
   return saveAccountsState({
     activeAccountName: accountName,

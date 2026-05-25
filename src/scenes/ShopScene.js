@@ -31,9 +31,9 @@ export class ShopScene extends Phaser.Scene {
       strokeThickness: 7
     }).setOrigin(0.5);
 
-    this.add.text(centreX, gameSettings.shopStarsY, `Account: ${getActiveAccountName()}  Stars: ${this.shopState.stars}`, {
+    this.add.text(centreX, gameSettings.shopStarsY, `Account: ${getActiveAccountName()}  Stars: ${this.shopState.stars}  High: ${this.shopState.bestRoundStars}`, {
       fontFamily: 'Arial, Helvetica, sans-serif',
-      fontSize: '26px',
+      fontSize: '24px',
       color: '#ffffff'
     }).setOrigin(0.5);
 

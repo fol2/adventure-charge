@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { playStartSound } from '../audio/soundEffects.js';
 import { createGameTextures } from '../data/createGameTextures.js';
 import { gameSettings } from '../data/gameSettings.js';
+import { setSmokeStateReader } from '../data/smokeMode.js';
 import { getActiveAccountName, loadShopState } from '../data/shopState.js';
 import { findShopItem } from '../data/shopItems.js';
 import { createTextButton } from '../ui/textButton.js';
@@ -40,10 +41,16 @@ export class MenuScene extends Phaser.Scene {
       this.scene.start('ShopScene');
     });
 
-    this.add.text(centreX, 512, `Stars: ${shopState.stars}`, {
+    this.add.text(centreX, gameSettings.menuStarsY, `Stars: ${shopState.stars}`, {
       fontFamily: 'Arial, Helvetica, sans-serif',
       fontSize: '24px',
       color: '#ffffff'
+    }).setOrigin(0.5);
+
+    this.add.text(centreX, gameSettings.menuHighScoreY, `High Score: ${shopState.bestRoundStars}`, {
+      fontFamily: 'Arial, Helvetica, sans-serif',
+      fontSize: '22px',
+      color: '#fef3c7'
     }).setOrigin(0.5);
 
     createTextButton(this, centreX, gameSettings.menuAccountButtonY, 'Accounts', () => {
@@ -51,12 +58,19 @@ export class MenuScene extends Phaser.Scene {
       this.scene.start('AccountScene');
     });
 
-    this.add.text(centreX, 535, `Account: ${getActiveAccountName()}`, {
+    this.add.text(centreX, gameSettings.menuAccountY, `Account: ${getActiveAccountName()}`, {
       fontFamily: 'Arial, Helvetica, sans-serif',
       fontSize: '20px',
       color: '#bfdbfe'
     }).setOrigin(0.5);
 
     this.cameras.main.setBounds(0, 0, gameSettings.gameWidth, gameSettings.gameHeight);
+
+    setSmokeStateReader(() => ({
+      scene: 'MenuScene',
+      accountName: getActiveAccountName(),
+      stars: shopState.stars,
+      highScore: shopState.bestRoundStars
+    }));
   }
 }

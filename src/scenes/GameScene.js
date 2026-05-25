@@ -123,6 +123,7 @@ export class GameScene extends Phaser.Scene {
     this.time.delayedCall(gameSettings.hitPause, () => {
       this.scene.start('GameOverScene', {
         score: this.score,
+        highScore: shopState.bestRoundStars,
         totalStars: shopState.stars
       });
     });

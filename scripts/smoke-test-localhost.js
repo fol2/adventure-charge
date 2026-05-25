@@ -165,6 +165,18 @@ const smokeAccountsState = {
       bestRoundStars: 60,
       ownedItemIds: [defaultShopItemId],
       selectedItemId: defaultShopItemId
+    },
+    Bea: {
+      stars: 0,
+      bestRoundStars: 8,
+      ownedItemIds: [defaultShopItemId],
+      selectedItemId: defaultShopItemId
+    },
+    Cal: {
+      stars: 0,
+      bestRoundStars: 12,
+      ownedItemIds: [defaultShopItemId],
+      selectedItemId: defaultShopItemId
     }
   }
 };
@@ -192,8 +204,17 @@ page.once('dialog', (dialog) => dialog.accept('Nova'));
 await page.mouse.click(canvasBox.x + centreX, canvasBox.y + gameSettings.accountNewButtonY);
 const accountCreatedState = await waitForGameState(
   page,
-  (state) => state.scene === 'AccountScene' && state.activeAccountName === 'Nova',
+  (state) => state.scene === 'AccountScene'
+    && state.activeAccountName === 'Nova'
+    && state.accountNames.includes('Nova')
+    && state.page === 1,
   'Creating a local account failed.'
+);
+await page.mouse.click(canvasBox.x + centreX - 120, canvasBox.y + gameSettings.accountPageButtonY);
+await waitForGameState(
+  page,
+  (state) => state.scene === 'AccountScene' && state.page === 0,
+  'Returning to the first account page failed.'
 );
 await page.mouse.click(
   canvasBox.x + centreX + 135,
@@ -201,7 +222,9 @@ await page.mouse.click(
 );
 const accountState = await waitForGameState(
   page,
-  (state) => state.scene === 'AccountScene' && state.activeAccountName === 'Ace',
+  (state) => state.scene === 'AccountScene'
+    && state.activeAccountName === 'Ace'
+    && state.highScore === 60,
   'Switching local accounts failed.'
 );
 await page.mouse.click(canvasBox.x + centreX, canvasBox.y + gameSettings.accountBackButtonY);
@@ -263,13 +286,16 @@ await browser.close();
 const result = {
   url: localUrl,
   createdAccountName: accountCreatedState.activeAccountName,
+  createdAccountPage: accountCreatedState.page,
   activeAccountName: accountState.activeAccountName,
+  activeAccountHighScore: accountState.highScore,
   shopSelectedItemId: shopState.selectedItemId,
   movedRightBy: movedX - startX,
   movedUpBy: startY - movedUpY,
   movedDownBy: movedDownY - movedUpY,
   scoreAfterStar,
   gameOverScore: gameOverState.score,
+  gameOverHighScore: gameOverState.highScore,
   restartedScore: restartedState.score,
   screenshot: evidencePath,
   errors
@@ -289,8 +315,16 @@ if (result.createdAccountName !== 'Nova') {
   throw new Error('The local account was not created from the Accounts screen.');
 }
 
+if (result.createdAccountPage !== 1) {
+  throw new Error('The Accounts screen did not page to the newly created account.');
+}
+
 if (result.activeAccountName !== 'Ace') {
   throw new Error('The local account did not switch to Ace.');
+}
+
+if (result.activeAccountHighScore !== 60) {
+  throw new Error('The active account high score was not shown correctly.');
 }
 
 if (result.movedUpBy < 70) {
@@ -307,6 +341,10 @@ if (result.movedDownBy >= result.movedUpBy) {
 
 if (scoreAfterStar < 1) {
   throw new Error('Collecting a star did not increase the score.');
+}
+
+if (result.gameOverHighScore !== 60) {
+  throw new Error('The game over screen did not keep the account high score.');
 }
 
 if (result.restartedScore !== 0) {
